@@ -358,26 +358,34 @@ async def get_card_details(cardId: str) -> str:
         return _format_error(e)
 
 
-@mcp.tool()
-async def create_card(
-    listId: str,
-    name: str,
-    description: str = "",
-    dueDate: str = "",
-    position: int = 65536,
-) -> str:
-    """Create a new card in a list. dueDate should be ISO 8601 format."""
-    try:
-        data: dict[str, Any] = {"name": name, "position": position, "type": "project"}
-        if description:
-            data["description"] = description
-        if dueDate:
-            data["dueDate"] = dueDate
-        result = await _get_client().post(f"lists/{listId}/cards", data=data)
-        return json.dumps(result, indent=2, default=str)
-    except Exception as e:
-        return _format_error(e)
 
+@mcp.tool()
+async def create_cards(
+    listId: str,
+    cards: list[dict[str, str]],
+) -> str:
+    """Create cards in a list. Each card dict needs 'name'
+    (required), and optional 'description' and 'dueDate' (ISO 8601).
+    Reports succeeded (with created card data) and failed (with name and error) separately.
+    """
+    succeeded: list[dict[str, Any]] = []
+    failed: list[dict[str, str]] = []
+    client = _get_client()
+    for card in cards:
+        try:
+            data: dict[str, Any] = {"name": card["name"], "type": "project"}
+            if card.get("description"):
+                data["description"] = card["description"]
+            if card.get("dueDate"):
+                data["dueDate"] = card["dueDate"]
+            result = await client.post(f"lists/{listId}/cards", data=data)
+            succeeded.append({"name": card["name"], "card": result.get("item", result)})
+        except Exception as e:
+            failed.append({"name": card.get("name", ""), "error": str(e)})
+    return json.dumps({"succeeded": succeeded, "failed": failed}, indent=2)
+
+
+@mcp.tool()
 
 @mcp.tool()
 async def create_card_with_tasks(
@@ -439,18 +447,6 @@ async def update_card(
 
 
 @mcp.tool()
-async def move_card(id: str, listId: str, position: int = 65536) -> str:
-    """Move a card to another list at a specific position. Use 65535 for end of list."""
-    try:
-        result = await _get_client().patch(
-            f"cards/{id}", data={"listId": listId, "position": position}
-        )
-        return json.dumps(result, indent=2, default=str)
-    except Exception as e:
-        return _format_error(e)
-
-
-@mcp.tool()
 async def duplicate_card(id: str, listId: str, position: int = 65536) -> str:
     """Duplicate a card into another list (or the same list)."""
     try:
@@ -464,13 +460,33 @@ async def duplicate_card(id: str, listId: str, position: int = 65536) -> str:
 
 
 @mcp.tool()
-async def delete_card(id: str) -> str:
-    """Delete a card."""
-    try:
-        result = await _get_client().delete(f"cards/{id}")
-        return json.dumps(result, indent=2, default=str)
-    except Exception as e:
-        return _format_error(e)
+async def delete_cards(cardIds: list[str]) -> str:
+    """Delete cards. Reports succeeded and failed card IDs separately."""
+    succeeded: list[str] = []
+    failed: list[dict[str, str]] = []
+    client = _get_client()
+    for card_id in cardIds:
+        try:
+            await client.delete(f"cards/{card_id}")
+            succeeded.append(card_id)
+        except Exception as e:
+            failed.append({"cardId": card_id, "error": str(e)})
+    return json.dumps({"succeeded": succeeded, "failed": failed}, indent=2)
+
+
+@mcp.tool()
+async def move_cards(cardIds: list[str], listId: str) -> str:
+    """Move cards to a target list. Reports succeeded and failed card IDs separately."""
+    succeeded: list[str] = []
+    failed: list[dict[str, str]] = []
+    client = _get_client()
+    for card_id in cardIds:
+        try:
+            await client.patch(f"cards/{card_id}", data={"listId": listId})
+            succeeded.append(card_id)
+        except Exception as e:
+            failed.append({"cardId": card_id, "error": str(e)})
+    return json.dumps({"succeeded": succeeded, "failed": failed}, indent=2)
 
 
 @mcp.tool()
