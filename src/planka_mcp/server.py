@@ -51,11 +51,11 @@ async def get_project(id: str) -> str:
 
 
 @mcp.tool()
-async def create_project(name: str, description: str = "") -> str:
-    """Create a new project."""
+async def create_project(name: str, description: str = "", type: str = "shared") -> str:
+    """Create a new project. Type can be 'private' or 'shared'."""
     try:
         result = await _get_client().post(
-            "projects", data={"name": name, "description": description}
+            "projects", data={"name": name, "description": description, "type": type}
         )
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
@@ -368,7 +368,7 @@ async def create_card(
 ) -> str:
     """Create a new card in a list. dueDate should be ISO 8601 format."""
     try:
-        data: dict[str, Any] = {"name": name, "position": position}
+        data: dict[str, Any] = {"name": name, "position": position, "type": "project"}
         if description:
             data["description"] = description
         if dueDate:
@@ -389,7 +389,7 @@ async def create_card_with_tasks(
     """Create a card with task checklist items. Provide task names as a list of strings."""
     try:
         client = _get_client()
-        card_data: dict[str, Any] = {"name": name}
+        card_data: dict[str, Any] = {"name": name, "type": "project"}
         if description:
             card_data["description"] = description
         card_result = await client.post(f"lists/{listId}/cards", data=card_data)
@@ -521,12 +521,34 @@ async def get_all_tasks(cardId: str) -> str:
         return _format_error(e)
 
 
+async def _ensure_task_list(client, card_id: str) -> str:
+    """Get or create a task list for a card. Returns the task list ID."""
+    card = await client.get(f"cards/{card_id}")
+    included = card.get("included", {})
+    task_lists = included.get("taskLists", [])
+
+    # Find a task list matching this card
+    for tl in task_lists:
+        if tl.get("cardId") == card_id:
+            return tl["id"]
+
+    # No task list exists — create one
+    result = await client.post(
+        f"cards/{card_id}/task-lists",
+        data={"name": "Tasks", "position": 65535},
+    )
+    tl_item = result.get("item", result)
+    return tl_item["id"]
+
+
 @mcp.tool()
 async def create_task(cardId: str, name: str, position: int = 65536) -> str:
     """Create a single task on a card."""
     try:
-        result = await _get_client().post(
-            f"cards/{cardId}/tasks",
+        client = _get_client()
+        task_list_id = await _ensure_task_list(client, cardId)
+        result = await client.post(
+            f"task-lists/{task_list_id}/tasks",
             data={"name": name, "position": position},
         )
         return json.dumps(result, indent=2, default=str)
@@ -549,8 +571,9 @@ async def batch_create_tasks(tasks: list[dict[str, str]]) -> str:
             if not card_id or not task_name:
                 created.append({"error": f"Missing cardId or name at index {i}"})
                 continue
+            task_list_id = await _ensure_task_list(client, card_id)
             result = await client.post(
-                f"cards/{card_id}/tasks",
+                f"task-lists/{task_list_id}/tasks",
                 data={"name": task_name, "position": 65536 * (i + 1)},
             )
             created.append(result.get("item", result))
@@ -624,12 +647,12 @@ async def get_all_labels(boardId: str) -> str:
 
 
 @mcp.tool()
-async def create_label(boardId: str, name: str, color: str) -> str:
+async def create_label(boardId: str, name: str, color: str, position: int = 65536) -> str:
     """Create a new label on a board. Color should be a Planka color name like 'muddy-grey'."""
     try:
         result = await _get_client().post(
             f"boards/{boardId}/labels",
-            data={"name": name, "color": color},
+            data={"name": name, "color": color, "position": position},
         )
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
