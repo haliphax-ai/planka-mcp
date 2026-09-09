@@ -1,4 +1,0 @@
-language_server:
-  python:
-    enabled: true
-    command: ["ruff", "server"]
