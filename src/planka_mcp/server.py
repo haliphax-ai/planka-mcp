@@ -51,11 +51,11 @@ async def get_project(id: str) -> str:
 
 
 @mcp.tool()
-async def create_project(name: str, description: str = "", type: str = "shared") -> str:
+async def create_project(name: str, description: str = "", project_type: str = "shared") -> str:
     """Create a new project. Type can be 'private' or 'shared'."""
     try:
         result = await _get_client().post(
-            "projects", data={"name": name, "description": description, "type": type}
+            "projects", data={"name": name, "description": description, "type": project_type}
         )
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
@@ -262,13 +262,13 @@ async def create_list(
     boardId: str,
     name: str,
     position: int = 65536,
-    type: str = "active",
+    list_type: str = "active",
 ) -> str:
     """Create a new list on a board. Type can be 'active' or 'closed'."""
     try:
         result = await _get_client().post(
             f"boards/{boardId}/lists",
-            data={"name": name, "position": position, "type": type},
+            data={"name": name, "position": position, "type": list_type},
         )
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
@@ -276,14 +276,14 @@ async def create_list(
 
 
 @mcp.tool()
-async def update_list(id: str, name: str = "", type: str = "") -> str:
+async def update_list(id: str, name: str = "", list_type: str = "") -> str:
     """Update a list's name and/or type ('active' or 'closed')."""
     try:
         data: dict[str, Any] = {}
         if name:
             data["name"] = name
-        if type:
-            data["type"] = type
+        if list_type:
+            data["type"] = list_type
         result = await _get_client().patch(f"lists/{id}", data=data)
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
