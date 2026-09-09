@@ -542,14 +542,21 @@ async def _ensure_task_list(client, card_id: str) -> str:
 
 
 @mcp.tool()
-async def create_task(cardId: str, name: str, position: int = 65536) -> str:
-    """Create a single task on a card."""
+async def create_task(
+    cardId: str, name: str = "", position: int = 65536, linkedCardId: str = ""
+) -> str:
+    """Create a single task on a card. Set linkedCardId to link to another card."""
     try:
         client = _get_client()
         task_list_id = await _ensure_task_list(client, cardId)
+        data: dict[str, Any] = {"position": position}
+        if name:
+            data["name"] = name
+        if linkedCardId:
+            data["linkedCardId"] = linkedCardId
         result = await client.post(
             f"task-lists/{task_list_id}/tasks",
-            data={"name": name, "position": position},
+            data=data,
         )
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
@@ -594,17 +601,15 @@ async def get_task(id: str) -> str:
 
 @mcp.tool()
 async def update_task(
-    id: str, name: str = "", isCompleted: bool | None = None, linkedCardId: str = ""
+    id: str, name: str = "", isCompleted: bool | None = None
 ) -> str:
-    """Update a task's name, completion status, or linked card."""
+    """Update a task's name or completion status."""
     try:
         data: dict[str, Any] = {}
         if name:
             data["name"] = name
         if isCompleted is not None:
             data["isCompleted"] = isCompleted
-        if linkedCardId:
-            data["linkedCardId"] = linkedCardId
         result = await _get_client().patch(f"tasks/{id}", data=data)
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
