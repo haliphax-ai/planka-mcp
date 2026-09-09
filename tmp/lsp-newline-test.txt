@@ -1,5 +1,0 @@
-line1
-REPLACED_A
-REPLACED_B
-REPLACED_C
-line3
