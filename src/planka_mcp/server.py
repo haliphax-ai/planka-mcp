@@ -507,6 +507,7 @@ async def attach_file_to_card(cardId: str, file_path: str, name: str = "") -> st
 # Tasks
 # =============================================================================
 
+@mcp.tool()
 async def get_all_tasks(cardId: str) -> str:
     """List all tasks (checklist items) on a card. Extracts from card response."""
     try:
@@ -515,9 +516,6 @@ async def get_all_tasks(cardId: str) -> str:
         return json.dumps({"items": tasks}, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
-        return _format_error(e)
-
-
 @mcp.tool()
 async def create_task(cardId: str, name: str, position: int = 65536) -> str:
     """Create a single task on a card."""
