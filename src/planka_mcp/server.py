@@ -482,7 +482,7 @@ async def move_cards(cardIds: list[str], listId: str) -> str:
     client = _get_client()
     for card_id in cardIds:
         try:
-            await client.patch(f"cards/{card_id}", data={"listId": listId})
+            await client.patch(f"cards/{card_id}", data={"listId": listId, "position": 65536})
             succeeded.append(card_id)
         except Exception as e:
             failed.append({"cardId": card_id, "error": str(e)})
