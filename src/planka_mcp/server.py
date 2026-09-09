@@ -34,9 +34,7 @@ def _format_error(e: Exception) -> str:
 async def get_projects(page: int = 1, perPage: int = 25) -> str:
     """List all projects the user has access to."""
     try:
-        result = await _get_client().get(
-            "projects", params={"page": page, "perPage": perPage}
-        )
+        result = await _get_client().get("projects", params={"page": page, "perPage": perPage})
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
@@ -459,9 +457,7 @@ async def delete_card(id: str) -> str:
 async def assign_parent_card(id: str, parentCardId: str) -> str:
     """Set the parent card for a card, creating a parent-child (subtask) relationship."""
     try:
-        result = await _get_client().patch(
-            f"cards/{id}", data={"parentCardId": parentCardId}
-        )
+        result = await _get_client().patch(f"cards/{id}", data={"parentCardId": parentCardId})
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
@@ -553,9 +549,7 @@ async def get_task(id: str) -> str:
 
 
 @mcp.tool()
-async def update_task(
-    id: str, name: str = "", isCompleted: bool | None = None
-) -> str:
+async def update_task(id: str, name: str = "", isCompleted: bool | None = None) -> str:
     """Update a task's name or completion status."""
     try:
         data: dict[str, Any] = {}
@@ -736,9 +730,7 @@ async def delete_comment(id: str) -> str:
 async def start_stopwatch(id: str) -> str:
     """Start the stopwatch on a card."""
     try:
-        result = await _get_client().patch(
-            f"cards/{id}", data={"isEditingStopwatch": True}
-        )
+        result = await _get_client().patch(f"cards/{id}", data={"isEditingStopwatch": True})
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
@@ -748,9 +740,7 @@ async def start_stopwatch(id: str) -> str:
 async def stop_stopwatch(id: str) -> str:
     """Stop the stopwatch on a card."""
     try:
-        result = await _get_client().patch(
-            f"cards/{id}", data={"isEditingStopwatch": False}
-        )
+        result = await _get_client().patch(f"cards/{id}", data={"isEditingStopwatch": False})
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
@@ -780,9 +770,7 @@ async def reset_stopwatch(id: str) -> str:
         result = await _get_client().patch(
             f"cards/{id}",
             data={
-                "isEditingStopwatchTime": True,
                 "stopwatchTotal": 0,
-                "isEditingStopwatchTime": False,
             },
         )
         return json.dumps(result, indent=2, default=str)
@@ -806,9 +794,7 @@ async def get_all_memberships(boardId: str) -> str:
 
 
 @mcp.tool()
-async def create_membership(
-    boardId: str, userId: str, role: str = "editor"
-) -> str:
+async def create_membership(boardId: str, userId: str, role: str = "editor") -> str:
     """Add a member to a board. Role can be 'editor' or 'viewer'."""
     try:
         result = await _get_client().post(

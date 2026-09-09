@@ -1,16 +1,16 @@
 """Shared types and enums for the Planka MCP server."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class MembershipRole(str, Enum):
+class MembershipRole(StrEnum):
     """Board membership roles."""
 
     EDITOR = "editor"
     VIEWER = "viewer"
 
 
-class AttachmentType(str, Enum):
+class AttachmentType(StrEnum):
     """Attachment types."""
 
     FILE = "file"

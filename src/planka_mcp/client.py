@@ -44,13 +44,9 @@ class PlankaClient:
 
     # --- Generic HTTP methods ---
 
-    async def get(
-        self, path: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    async def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         client = await self._get_client()
-        resp = await client.get(
-            self._api_url(path), headers=self._headers, params=params
-        )
+        resp = await client.get(self._api_url(path), headers=self._headers, params=params)
         resp.raise_for_status()
         return resp.json()
 
@@ -67,13 +63,9 @@ class PlankaClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def patch(
-        self, path: str, data: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    async def patch(self, path: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
         client = await self._get_client()
-        resp = await client.patch(
-            self._api_url(path), headers=self._headers, json=data
-        )
+        resp = await client.patch(self._api_url(path), headers=self._headers, json=data)
         resp.raise_for_status()
         return resp.json()
 
@@ -96,8 +88,6 @@ class PlankaClient:
         with open(file_path, "rb") as f:
             files = {"file": (file_name, f)}
             data = extra_fields or {}
-            resp = await client.post(
-                self._api_url(path), headers=headers, files=files, data=data
-            )
+            resp = await client.post(self._api_url(path), headers=headers, files=files, data=data)
         resp.raise_for_status()
         return resp.json()
