@@ -155,12 +155,11 @@ async def get_board_summary(boardId: str) -> str:
         client = _get_client()
         board = await client.get(f"boards/{boardId}")
         board_data = board.get("item", board)
+        included = board.get("included", {})
 
-        lists_result = await client.get(f"boards/{boardId}/lists")
-        lists_data = lists_result.get("items", [])
-
-        labels_result = await client.get(f"boards/{boardId}/labels")
-        labels_data = labels_result.get("items", [])
+        # Planka v2 nests all data in the board response
+        lists_data = included.get("lists", [])
+        labels_data = included.get("labels", [])
 
         summary = {
             "board": board_data,
@@ -189,20 +188,27 @@ async def get_project_summary(projectId: str) -> str:
         boards_summary = []
         for board in boards_data:
             board_id = board.get("id", "")
-            lists_result = await client.get(f"boards/{board_id}/lists")
-            lists_data = lists_result.get("items", [])
+            # Fetch the board to get its included data (lists, cards)
+            board_full = await client.get(f"boards/{board_id}")
+            board_included = board_full.get("included", {})
+            lists_data = board_included.get("lists", [])
+            cards_data = board_included.get("cards", [])
+
+            # Map list IDs to card counts
+            cards_by_list: dict[str, int] = {}
+            for card in cards_data:
+                list_id = card.get("listId", "")
+                cards_by_list[list_id] = cards_by_list.get(list_id, 0) + 1
 
             lists_with_cards = []
             for lst in lists_data:
                 list_id = lst.get("id", "")
-                cards_result = await client.get(f"lists/{list_id}/cards")
-                cards_data = cards_result.get("items", [])
                 lists_with_cards.append(
                     {
                         "id": list_id,
                         "name": lst.get("name"),
                         "type": lst.get("type"),
-                        "cardCount": len(cards_data),
+                        "cardCount": cards_by_list.get(list_id, 0),
                     }
                 )
 
@@ -227,10 +233,17 @@ async def get_project_summary(projectId: str) -> str:
 
 @mcp.tool()
 async def get_all_lists(boardId: str) -> str:
-    """List all lists (columns) on a board."""
+    """List all lists on a board.
+
+    Extracts from board response since Planka nests lists.
+    """
     try:
-        result = await _get_client().get(f"boards/{boardId}/lists")
-        return json.dumps(result, indent=2, default=str)
+        board = await _get_client().get(f"boards/{boardId}")
+        lists = (
+            board.get("item", {}).get("lists", [])
+            or board.get("included", {}).get("lists", [])
+        )
+        return json.dumps({"items": lists}, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
 
@@ -295,14 +308,19 @@ async def delete_list(id: str) -> str:
 
 @mcp.tool()
 async def get_all_cards(listId: str) -> str:
-    """List all cards in a list."""
+    """List all cards in a list.
+
+    Extracts from list response since Planka nests cards.
+    """
     try:
-        result = await _get_client().get(f"lists/{listId}/cards")
-        return json.dumps(result, indent=2, default=str)
+        list_data = await _get_client().get(f"lists/{listId}")
+        cards = (
+            list_data.get("item", {}).get("cards", [])
+            or list_data.get("included", {}).get("cards", [])
+        )
+        return json.dumps({"items": cards}, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
-
-
 @mcp.tool()
 async def get_card(id: str) -> str:
     """Get a single card by ID."""
@@ -320,11 +338,13 @@ async def get_card_details(cardId: str) -> str:
         client = _get_client()
         card = await client.get(f"cards/{cardId}")
         card_data = card.get("item", card)
+        included = card.get("included", {})
 
-        tasks = (await client.get(f"cards/{cardId}/tasks")).get("items", [])
-        comments = (await client.get(f"cards/{cardId}/comments")).get("items", [])
-        labels = (await client.get(f"cards/{cardId}/labels")).get("items", [])
-        attachments = (await client.get(f"cards/{cardId}/attachments")).get("items", [])
+        # Planka v2 nests all data in the card response
+        tasks = included.get("tasks", [])
+        comments = included.get("comments", [])
+        labels = included.get("labels", [])
+        attachments = included.get("attachments", [])
 
         details = {
             "card": card_data,
@@ -336,8 +356,6 @@ async def get_card_details(cardId: str) -> str:
         return json.dumps(details, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
-
-
 @mcp.tool()
 async def create_card(
     listId: str,
@@ -489,14 +507,14 @@ async def attach_file_to_card(cardId: str, file_path: str, name: str = "") -> st
 # Tasks
 # =============================================================================
 
-
-@mcp.tool()
 async def get_all_tasks(cardId: str) -> str:
-    """List all tasks (checklist items) on a card."""
+    """List all tasks (checklist items) on a card. Extracts from card response."""
     try:
-        result = await _get_client().get(f"cards/{cardId}/tasks")
-        return json.dumps(result, indent=2, default=str)
+        card = await _get_client().get(f"cards/{cardId}")
+        tasks = card.get("item", {}).get("tasks", []) or card.get("included", {}).get("tasks", [])
+        return json.dumps({"items": tasks}, indent=2, default=str)
     except Exception as e:
+        return _format_error(e)
         return _format_error(e)
 
 
