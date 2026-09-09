@@ -239,9 +239,8 @@ async def get_all_lists(boardId: str) -> str:
     """
     try:
         board = await _get_client().get(f"boards/{boardId}")
-        lists = (
-            board.get("item", {}).get("lists", [])
-            or board.get("included", {}).get("lists", [])
+        lists = board.get("item", {}).get("lists", []) or board.get("included", {}).get(
+            "lists", []
         )
         return json.dumps({"items": lists}, indent=2, default=str)
     except Exception as e:
@@ -314,13 +313,14 @@ async def get_all_cards(listId: str) -> str:
     """
     try:
         list_data = await _get_client().get(f"lists/{listId}")
-        cards = (
-            list_data.get("item", {}).get("cards", [])
-            or list_data.get("included", {}).get("cards", [])
+        cards = list_data.get("item", {}).get("cards", []) or list_data.get("included", {}).get(
+            "cards", []
         )
         return json.dumps({"items": cards}, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
+
+
 @mcp.tool()
 async def get_card(id: str) -> str:
     """Get a single card by ID."""
@@ -356,6 +356,8 @@ async def get_card_details(cardId: str) -> str:
         return json.dumps(details, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
+
+
 @mcp.tool()
 async def create_card(
     listId: str,
@@ -507,6 +509,7 @@ async def attach_file_to_card(cardId: str, file_path: str, name: str = "") -> st
 # Tasks
 # =============================================================================
 
+
 @mcp.tool()
 async def get_all_tasks(cardId: str) -> str:
     """List all tasks (checklist items) on a card. Extracts from card response."""
@@ -516,6 +519,8 @@ async def get_all_tasks(cardId: str) -> str:
         return json.dumps({"items": tasks}, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
+
+
 @mcp.tool()
 async def create_task(cardId: str, name: str, position: int = 65536) -> str:
     """Create a single task on a card."""
