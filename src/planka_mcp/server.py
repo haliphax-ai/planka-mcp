@@ -475,14 +475,14 @@ async def delete_cards(cardIds: list[str]) -> str:
 
 
 @mcp.tool()
-async def move_cards(cardIds: list[str], listId: str) -> str:
+async def move_cards(cardIds: list[str], listId: str, position: int = 65536) -> str:
     """Move cards to a target list. Reports succeeded and failed card IDs separately."""
     succeeded: list[str] = []
     failed: list[dict[str, str]] = []
     client = _get_client()
     for card_id in cardIds:
         try:
-            await client.patch(f"cards/{card_id}", data={"listId": listId, "position": 65536})
+            await client.patch(f"cards/{card_id}", data={"listId": listId, "position": position})
             succeeded.append(card_id)
         except Exception as e:
             failed.append({"cardId": card_id, "error": str(e)})

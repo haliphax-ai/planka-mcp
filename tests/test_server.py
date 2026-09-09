@@ -267,6 +267,42 @@ async def test_move_cards_partial_failure():
 
 
 @pytest.mark.asyncio
+async def test_move_cards_default_position():
+    """Verify move_cards sends default position 65536 when none provided."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.patch.return_value = {"item": {}}
+
+        from planka_mcp.server import move_cards
+        result = await move_cards(["card-1"], "target-list")
+
+        parsed = json.loads(result)
+        assert parsed["succeeded"] == ["card-1"]
+        data = client.patch.call_args_list[0][1]["data"]
+        assert data["listId"] == "target-list"
+        assert data["position"] == 65536
+
+
+@pytest.mark.asyncio
+async def test_move_cards_custom_position():
+    """Verify move_cards uses a custom position when provided."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.patch.return_value = {"item": {}}
+
+        from planka_mcp.server import move_cards
+        result = await move_cards(["card-1"], "target-list", position=1000)
+
+        parsed = json.loads(result)
+        assert parsed["succeeded"] == ["card-1"]
+        data = client.patch.call_args_list[0][1]["data"]
+        assert data["listId"] == "target-list"
+        assert data["position"] == 1000
+
+
+@pytest.mark.asyncio
 async def test_move_cards_empty_list():
     """Verify move_cards with empty input returns empty results."""
     with patch("planka_mcp.server._get_client") as mock_get:
