@@ -435,6 +435,38 @@ async def test_create_cards_partial_failure():
 
 
 @pytest.mark.asyncio
+async def test_create_cards_default_position():
+    """Verify create_cards sends default position 65536 when none provided."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.post.return_value = {"item": {"id": "123", "name": "test"}}
+
+        from planka_mcp.server import create_cards
+        await create_cards("list-1", [{"name": "Test Card"}])
+
+        post_data = client.post.call_args[1]["data"]
+        assert client.post.call_args[0][0] == "lists/list-1/cards"
+        assert post_data["position"] == 65536
+
+
+@pytest.mark.asyncio
+async def test_create_cards_custom_position():
+    """Verify create_cards uses a custom position when provided."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.post.return_value = {"item": {"id": "123", "name": "test"}}
+
+        from planka_mcp.server import create_cards
+        await create_cards("list-1", [{"name": "Test Card"}], position=1000)
+
+        post_data = client.post.call_args[1]["data"]
+        assert client.post.call_args[0][0] == "lists/list-1/cards"
+        assert post_data["position"] == 1000
+
+
+@pytest.mark.asyncio
 async def test_create_cards_empty_list():
     """Verify create_cards with empty input returns empty results."""
     with patch("planka_mcp.server._get_client") as mock_get:

@@ -360,9 +360,11 @@ async def get_card_details(cardId: str) -> str:
 
 
 @mcp.tool()
+@mcp.tool()
 async def create_cards(
     listId: str,
     cards: list[dict[str, str]],
+    position: int = 65536,
 ) -> str:
     """Create cards in a list. Each card dict needs 'name'
     (required), and optional 'description' and 'dueDate' (ISO 8601).
@@ -373,7 +375,7 @@ async def create_cards(
     client = _get_client()
     for card in cards:
         try:
-            data: dict[str, Any] = {"name": card["name"], "type": "project"}
+            data: dict[str, Any] = {"name": card["name"], "type": "project", "position": position}
             if card.get("description"):
                 data["description"] = card["description"]
             if card.get("dueDate"):
@@ -383,10 +385,6 @@ async def create_cards(
         except Exception as e:
             failed.append({"name": card.get("name", ""), "error": str(e)})
     return json.dumps({"succeeded": succeeded, "failed": failed}, indent=2)
-
-
-@mcp.tool()
-
 @mcp.tool()
 async def create_card_with_tasks(
     listId: str,
