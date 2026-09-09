@@ -593,14 +593,18 @@ async def get_task(id: str) -> str:
 
 
 @mcp.tool()
-async def update_task(id: str, name: str = "", isCompleted: bool | None = None) -> str:
-    """Update a task's name or completion status."""
+async def update_task(
+    id: str, name: str = "", isCompleted: bool | None = None, linkedCardId: str = ""
+) -> str:
+    """Update a task's name, completion status, or linked card."""
     try:
         data: dict[str, Any] = {}
         if name:
             data["name"] = name
         if isCompleted is not None:
             data["isCompleted"] = isCompleted
+        if linkedCardId:
+            data["linkedCardId"] = linkedCardId
         result = await _get_client().patch(f"tasks/{id}", data=data)
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
