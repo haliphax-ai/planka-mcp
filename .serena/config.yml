@@ -1,0 +1,4 @@
+language_server:
+  python:
+    enabled: true
+    command: ["pyright-langserver", "--stdio"]
