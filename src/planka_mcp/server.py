@@ -417,31 +417,38 @@ async def create_card_with_tasks(
 
 
 @mcp.tool()
-async def update_card(
-    id: str,
-    name: str = "",
-    description: str = "",
-    dueDate: str = "",
-    isClosed: bool | None = None,
-    position: int | None = None,
-) -> str:
-    """Update a card's fields. Only specified fields are updated."""
-    try:
-        data: dict[str, Any] = {}
-        if name:
-            data["name"] = name
-        if description:
-            data["description"] = description
-        if dueDate:
-            data["dueDate"] = dueDate
-        if isClosed is not None:
-            data["isClosed"] = isClosed
-        if position is not None:
-            data["position"] = position
-        result = await _get_client().patch(f"cards/{id}", data=data)
-        return json.dumps(result, indent=2, default=str)
-    except Exception as e:
-        return _format_error(e)
+async def update_cards(cards: list[dict[str, Any]]) -> str:
+    """Update multiple cards. Only specified fields are updated on each card.
+
+    Reports succeeded and failed card IDs separately. Each item requires 'id'
+    and may include 'name', 'description', 'dueDate', 'isClosed', 'position'.
+
+    Example: [{"id": "123", "name": "New name"}, {"id": "456", "isClosed": true}]
+    """
+    succeeded: list[str] = []
+    failed: list[dict[str, str]] = []
+    client = _get_client()
+    for card in cards:
+        card_id = card.get("id", "")
+        try:
+            if not card_id:
+                raise ValueError("Missing 'id' in update item")
+            data: dict[str, Any] = {}
+            if card.get("name"):
+                data["name"] = card["name"]
+            if card.get("description"):
+                data["description"] = card["description"]
+            if card.get("dueDate"):
+                data["dueDate"] = card["dueDate"]
+            if card.get("isClosed") is not None:
+                data["isClosed"] = card["isClosed"]
+            if card.get("position") is not None:
+                data["position"] = card["position"]
+            await client.patch(f"cards/{card_id}", data=data)
+            succeeded.append(card_id)
+        except Exception as e:
+            failed.append({"id": card_id, "error": str(e)})
+    return json.dumps({"succeeded": succeeded, "failed": failed}, indent=2)
 
 
 @mcp.tool()
@@ -556,32 +563,14 @@ async def _ensure_task_list(client, card_id: str) -> str:
 
 
 @mcp.tool()
-async def create_task(
-    cardId: str, name: str = "", position: int = 65536, linkedCardId: str = ""
-) -> str:
-    """Create a single task on a card. Set linkedCardId to link to another card."""
-    try:
-        client = _get_client()
-        task_list_id = await _ensure_task_list(client, cardId)
-        data: dict[str, Any] = {"position": position}
-        if name:
-            data["name"] = name
-        if linkedCardId:
-            data["linkedCardId"] = linkedCardId
-        result = await client.post(
-            f"task-lists/{task_list_id}/tasks",
-            data=data,
-        )
-        return json.dumps(result, indent=2, default=str)
-    except Exception as e:
-        return _format_error(e)
+async def create_tasks(tasks: list[dict[str, Any]]) -> str:
+    """Create multiple tasks at once.
 
+    Each item must have 'cardId' and 'name' keys. Optional keys: 'position'
+    (defaults to 65536 * (index + 1)) and 'linkedCardId' (link to another card).
 
-@mcp.tool()
-async def batch_create_tasks(tasks: list[dict[str, str]]) -> str:
-    """Create multiple tasks at once. Each item should have 'cardId' and 'name' keys.
-
-    Example: [{"cardId": "123", "name": "Task 1"}, {"cardId": "123", "name": "Task 2"}]
+    Example: [{"cardId": "123", "name": "Task 1"},
+              {"cardId": "123", "name": "Task 2", "linkedCardId": "456"}]
     """
     try:
         client = _get_client()
@@ -593,9 +582,15 @@ async def batch_create_tasks(tasks: list[dict[str, str]]) -> str:
                 created.append({"error": f"Missing cardId or name at index {i}"})
                 continue
             task_list_id = await _ensure_task_list(client, card_id)
+            position = task.get("position")
+            if position is None:
+                position = 65536 * (i + 1)
+            data: dict[str, Any] = {"name": task_name, "position": position}
+            if task.get("linkedCardId"):
+                data["linkedCardId"] = task["linkedCardId"]
             result = await client.post(
                 f"task-lists/{task_list_id}/tasks",
-                data={"name": task_name, "position": 65536 * (i + 1)},
+                data=data,
             )
             created.append(result.get("item", result))
         return json.dumps({"items": created}, indent=2, default=str)
@@ -631,13 +626,18 @@ async def update_task(
 
 
 @mcp.tool()
-async def delete_task(id: str) -> str:
-    """Delete a task."""
-    try:
-        result = await _get_client().delete(f"tasks/{id}")
-        return json.dumps(result, indent=2, default=str)
-    except Exception as e:
-        return _format_error(e)
+async def delete_tasks(taskIds: list[str]) -> str:
+    """Delete tasks. Reports succeeded and failed task IDs separately."""
+    succeeded: list[str] = []
+    failed: list[dict[str, str]] = []
+    client = _get_client()
+    for task_id in taskIds:
+        try:
+            await client.delete(f"tasks/{task_id}")
+            succeeded.append(task_id)
+        except Exception as e:
+            failed.append({"taskId": task_id, "error": str(e)})
+    return json.dumps({"succeeded": succeeded, "failed": failed}, indent=2)
 
 
 @mcp.tool()
