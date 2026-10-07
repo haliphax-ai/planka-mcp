@@ -26,8 +26,8 @@ This server exposes 50+ MCP tools covering:
 - **Projects**: get/create/update/delete
 - **Boards**: get/create/update/delete, summaries
 - **Lists**: get/create/update/delete
-- **Cards**: get/create_cards/update/move_cards/delete_cards/duplicate (all batch-aware), details, parent-child, file attachments
-- **Tasks**: get/create/batch create/update/delete/toggle complete
+- **Cards**: get/create_cards/update_cards/move_cards/delete_cards/duplicate (all batch-aware), details, parent-child, file attachments
+- **Tasks**: get/create_tasks/update/delete_tasks/toggle complete
 - **Labels**: get/create/update/delete, add/remove from cards
 - **Comments**: get/create/update/delete
 - **Stopwatches**: start/stop/get/reset

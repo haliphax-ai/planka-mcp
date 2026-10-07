@@ -28,10 +28,10 @@ def test_tool_count():
         "update_board", "delete_board", "get_board_summary", "get_project_summary",
         "get_all_lists", "get_list", "create_list", "update_list", "delete_list",
         "get_all_cards", "get_card", "get_card_details", "create_cards",
-        "create_card_with_tasks", "update_card", "move_cards", "duplicate_card",
+        "create_card_with_tasks", "update_cards", "move_cards", "duplicate_card",
         "delete_cards", "assign_parent_card", "attach_file_to_card",
-        "get_all_tasks", "create_task", "batch_create_tasks", "get_task",
-        "update_task", "delete_task", "complete_task",
+        "get_all_tasks", "create_tasks", "get_task",
+        "update_task", "delete_tasks", "complete_task",
         "get_all_labels", "create_label", "update_label", "delete_label",
         "add_label_to_card", "remove_label_from_card",
         "get_all_comments", "create_comment", "get_comment", "update_comment",
@@ -91,8 +91,8 @@ async def test_create_list_sends_type():
 
 
 @pytest.mark.asyncio
-async def test_create_task_uses_task_list_endpoint():
-    """Verify create_task goes through task lists, not cards/{id}/tasks."""
+async def test_create_tasks_uses_task_list_endpoint():
+    """Verify create_tasks goes through task lists, not cards/{id}/tasks."""
     with patch("planka_mcp.server._get_client") as mock_get:
         client = AsyncMock()
         mock_get.return_value = client
@@ -102,8 +102,8 @@ async def test_create_task_uses_task_list_endpoint():
         }
         client.post.return_value = {"item": {"id": "task-1", "name": "My Task"}}
 
-        from planka_mcp.server import create_task
-        await create_task("card-1", "My Task")
+        from planka_mcp.server import create_tasks
+        await create_tasks([{"cardId": "card-1", "name": "My Task"}])
 
         assert client.post.call_count == 1
         post_path = client.post.call_args[0][0]
@@ -111,8 +111,8 @@ async def test_create_task_uses_task_list_endpoint():
 
 
 @pytest.mark.asyncio
-async def test_create_task_creates_task_list_if_needed():
-    """Verify create_task creates a task list when none exists."""
+async def test_create_tasks_creates_task_list_if_needed():
+    """Verify create_tasks creates a task list when none exists."""
     with patch("planka_mcp.server._get_client") as mock_get:
         client = AsyncMock()
         mock_get.return_value = client
@@ -125,8 +125,8 @@ async def test_create_task_creates_task_list_if_needed():
             {"item": {"id": "task-1"}},
         ]
 
-        from planka_mcp.server import create_task
-        await create_task("card-1", "New Task")
+        from planka_mcp.server import create_tasks
+        await create_tasks([{"cardId": "card-1", "name": "New Task"}])
 
         first_path = client.post.call_args_list[0][0][0]
         assert "cards/card-1/task-lists" in first_path
@@ -484,8 +484,8 @@ async def test_create_cards_empty_list():
 
 
 @pytest.mark.asyncio
-async def test_batch_create_tasks():
-    """Verify batch_create_tasks processes multiple tasks through task lists."""
+async def test_create_tasks():
+    """Verify create_tasks processes multiple tasks through task lists."""
     with patch("planka_mcp.server._get_client") as mock_get:
         client = AsyncMock()
         mock_get.return_value = client
@@ -495,8 +495,8 @@ async def test_batch_create_tasks():
         }
         client.post.return_value = {"item": {"id": "task-1"}}
 
-        from planka_mcp.server import batch_create_tasks
-        result = await batch_create_tasks([
+        from planka_mcp.server import create_tasks
+        result = await create_tasks([
             {"cardId": "card-1", "name": "Task A"},
             {"cardId": "card-1", "name": "Task B"},
         ])
@@ -505,3 +505,179 @@ async def test_batch_create_tasks():
         assert len(parsed["items"]) == 2
         for call in client.post.call_args_list:
             assert "task-lists/tl-1/tasks" in call[0][0]
+
+
+@pytest.mark.asyncio
+async def test_update_cards_all_succeed():
+    """Verify update_cards updates all cards and reports success."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.patch.return_value = {"item": {}}
+
+        from planka_mcp.server import update_cards
+        result = await update_cards([
+            {"id": "card-1", "name": "Renamed"},
+            {"id": "card-2", "description": "New desc"},
+            {"id": "card-3", "isClosed": False},
+        ])
+
+        parsed = json.loads(result)
+        assert parsed["succeeded"] == ["card-1", "card-2", "card-3"]
+        assert parsed["failed"] == []
+        assert client.patch.call_count == 3
+        first_call = client.patch.call_args_list[0]
+        assert first_call[0][0] == "cards/card-1"
+        assert first_call[1]["data"] == {"name": "Renamed"}
+        second_call = client.patch.call_args_list[1]
+        assert second_call[0][0] == "cards/card-2"
+        assert second_call[1]["data"] == {"description": "New desc"}
+        third_call = client.patch.call_args_list[2]
+        assert third_call[0][0] == "cards/card-3"
+        assert third_call[1]["data"] == {"isClosed": False}
+
+
+@pytest.mark.asyncio
+async def test_update_cards_omits_unspecified_fields():
+    """Verify update_cards only sends the fields present in each item."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.patch.return_value = {"item": {}}
+
+        from planka_mcp.server import update_cards
+        result = await update_cards([{"id": "card-1", "position": 2048}])
+
+        parsed = json.loads(result)
+        assert parsed["succeeded"] == ["card-1"]
+        data = client.patch.call_args[1]["data"]
+        assert data == {"position": 2048}
+
+
+@pytest.mark.asyncio
+async def test_update_cards_partial_failure():
+    """Verify update_cards reports errors without aborting."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.patch.side_effect = [
+            {"item": {}},
+            httpx.HTTPStatusError(
+                "Not Found",
+                request=MagicMock(),
+                response=MagicMock(status_code=404),
+            ),
+            {"item": {}},
+        ]
+
+        from planka_mcp.server import update_cards
+        result = await update_cards([
+            {"id": "card-1", "name": "A"},
+            {"id": "card-2", "name": "B"},
+            {"id": "card-3", "name": "C"},
+        ])
+
+        parsed = json.loads(result)
+        assert parsed["succeeded"] == ["card-1", "card-3"]
+        assert len(parsed["failed"]) == 1
+        assert parsed["failed"][0]["id"] == "card-2"
+        assert "error" in parsed["failed"][0]
+
+
+@pytest.mark.asyncio
+async def test_delete_tasks_all_succeed():
+    """Verify delete_tasks deletes all tasks and reports success."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.delete.return_value = {"item": {}}
+
+        from planka_mcp.server import delete_tasks
+        result = await delete_tasks(["task-1", "task-2", "task-3"])
+
+        parsed = json.loads(result)
+        assert parsed["succeeded"] == ["task-1", "task-2", "task-3"]
+        assert parsed["failed"] == []
+        assert client.delete.call_count == 3
+        for call in client.delete.call_args_list:
+            assert call[0][0].startswith("tasks/")
+
+
+@pytest.mark.asyncio
+async def test_delete_tasks_partial_failure():
+    """Verify delete_tasks reports errors without aborting."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.delete.side_effect = [
+            {"item": {}},
+            httpx.HTTPStatusError(
+                "Not Found",
+                request=MagicMock(),
+                response=MagicMock(status_code=404),
+            ),
+            {"item": {}},
+        ]
+
+        from planka_mcp.server import delete_tasks
+        result = await delete_tasks(["task-1", "task-2", "task-3"])
+
+        parsed = json.loads(result)
+        assert parsed["succeeded"] == ["task-1", "task-3"]
+        assert len(parsed["failed"]) == 1
+        assert parsed["failed"][0]["taskId"] == "task-2"
+        assert "error" in parsed["failed"][0]
+
+
+@pytest.mark.asyncio
+async def test_create_tasks_reports_missing_fields_by_index():
+    """Verify create_tasks reports invalid items by index and creates the rest."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.get.return_value = {
+            "item": {"id": "card-1"},
+            "included": {"taskLists": [{"id": "tl-1", "cardId": "card-1"}]},
+        }
+        client.post.return_value = {"item": {"id": "task-1"}}
+
+        from planka_mcp.server import create_tasks
+        result = await create_tasks([
+            {"cardId": "card-1", "name": "Valid"},
+            {"cardId": "card-1"},
+        ])
+
+        parsed = json.loads(result)
+        assert len(parsed["items"]) == 2
+        assert parsed["items"][0]["id"] == "task-1"
+        assert parsed["items"][1] == {"error": "Missing cardId or name at index 1"}
+        assert client.post.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_create_tasks_position_and_linked_card():
+    """Verify create_tasks honors per-item position and linkedCardId."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.get.return_value = {
+            "item": {"id": "card-1"},
+            "included": {"taskLists": [{"id": "tl-1", "cardId": "card-1"}]},
+        }
+        client.post.return_value = {"item": {"id": "task-1"}}
+
+        from planka_mcp.server import create_tasks
+        result = await create_tasks([
+            {"cardId": "card-1", "name": "Linked", "position": 1024,
+             "linkedCardId": "card-9"},
+            {"cardId": "card-1", "name": "Default pos"},
+        ])
+
+        parsed = json.loads(result)
+        assert len(parsed["items"]) == 2
+        first_data = client.post.call_args_list[0][1]["data"]
+        assert first_data["position"] == 1024
+        assert first_data["linkedCardId"] == "card-9"
+        second_data = client.post.call_args_list[1][1]["data"]
+        assert second_data["position"] == 131072
+        assert "linkedCardId" not in second_data
