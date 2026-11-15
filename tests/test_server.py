@@ -681,3 +681,40 @@ async def test_create_tasks_position_and_linked_card():
         second_data = client.post.call_args_list[1][1]["data"]
         assert second_data["position"] == 131072
         assert "linkedCardId" not in second_data
+
+
+@pytest.mark.asyncio
+async def test_add_label_to_card_uses_card_labels_endpoint():
+    """Verify add_label_to_card posts to cards/{id}/card-labels with labelId."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.post.return_value = {"item": {"cardId": "card-1", "labelId": "label-1"}}
+
+        from planka_mcp.server import add_label_to_card
+        result = await add_label_to_card("card-1", "label-1")
+
+        parsed = json.loads(result)
+        assert parsed["item"]["labelId"] == "label-1"
+        post_path = client.post.call_args[0][0]
+        assert post_path == "cards/card-1/card-labels", f"Got: {post_path}"
+        assert client.post.call_args[1]["data"] == {"labelId": "label-1"}
+
+
+@pytest.mark.asyncio
+async def test_remove_label_from_card_uses_card_labels_endpoint():
+    """Verify remove_label_from_card deletes cards/{id}/card-labels/labelId:{labelId}."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.delete.return_value = {"item": {"cardId": "card-1", "labelId": "label-1"}}
+
+        from planka_mcp.server import remove_label_from_card
+        result = await remove_label_from_card("card-1", "label-1")
+
+        parsed = json.loads(result)
+        assert parsed["item"]["labelId"] == "label-1"
+        delete_path = client.delete.call_args[0][0]
+        assert delete_path == "cards/card-1/card-labels/labelId:label-1", (
+            f"Got: {delete_path}"
+        )

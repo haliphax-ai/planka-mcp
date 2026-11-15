@@ -712,7 +712,7 @@ async def add_label_to_card(cardId: str, labelId: str) -> str:
     """Add a label to a card."""
     try:
         result = await _get_client().post(
-            f"cards/{cardId}/labels",
+            f"cards/{cardId}/card-labels",
             data={"labelId": labelId},
         )
         return json.dumps(result, indent=2, default=str)
@@ -724,7 +724,9 @@ async def add_label_to_card(cardId: str, labelId: str) -> str:
 async def remove_label_from_card(cardId: str, labelId: str) -> str:
     """Remove a label from a card."""
     try:
-        result = await _get_client().delete(f"cards/{cardId}/labels/{labelId}")
+        result = await _get_client().delete(
+            f"cards/{cardId}/card-labels/labelId:{labelId}"
+        )
         return json.dumps(result, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
