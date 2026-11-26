@@ -663,8 +663,12 @@ async def complete_task(id: str) -> str:
 async def get_all_labels(boardId: str) -> str:
     """List all labels on a board."""
     try:
-        result = await _get_client().get(f"boards/{boardId}/labels")
-        return json.dumps(result, indent=2, default=str)
+        # Planka v2 has no GET boards/{id}/labels endpoint; labels come nested
+        # in the board response's included.labels (a bare GET on that path falls
+        # through to the SPA catch-all and returns index.html with HTTP 200).
+        board = await _get_client().get(f"boards/{boardId}")
+        labels = board.get("included", {}).get("labels", [])
+        return json.dumps({"items": labels}, indent=2, default=str)
     except Exception as e:
         return _format_error(e)
 

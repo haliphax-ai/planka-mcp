@@ -482,6 +482,85 @@ async def test_create_cards_empty_list():
         client.post.assert_not_called()
 
 
+@pytest.mark.asyncio
+async def test_get_all_labels_reads_board_included():
+    """Verify get_all_labels reads labels from the board GET's included.labels."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.get.return_value = {
+            "item": {"id": "board-1"},
+            "included": {
+                "labels": [
+                    {"id": "l1", "name": "epic", "color": "modern-green"},
+                    {"id": "l2", "name": "fix", "color": "apricot-red"},
+                ],
+            },
+        }
+
+        from planka_mcp.server import get_all_labels
+        result = await get_all_labels("board-1")
+
+        parsed = json.loads(result)
+        assert len(parsed["items"]) == 2
+        assert parsed["items"][0]["name"] == "epic"
+        get_path = client.get.call_args[0][0]
+        assert get_path == "boards/board-1", f"Got: {get_path}"
+
+
+@pytest.mark.asyncio
+async def test_get_all_labels_empty_included():
+    """Verify get_all_labels returns empty items when the board has no labels."""
+    with patch("planka_mcp.server._get_client") as mock_get:
+        client = AsyncMock()
+        mock_get.return_value = client
+        client.get.return_value = {"item": {"id": "board-1"}, "included": {}}
+
+        from planka_mcp.server import get_all_labels
+        result = await get_all_labels("board-1")
+
+        parsed = json.loads(result)
+        assert parsed["items"] == []
+
+
+def test_client_raises_descriptive_error_for_html_response():
+    """Verify non-JSON responses surface status + content-type, not JSONDecodeError."""
+    from planka_mcp.client import PlankaApiFormatError, PlankaClient
+
+    client = PlankaClient(base_url="http://test", api_token="tok")
+    request = httpx.Request("GET", "http://test/api/boards/1/labels")
+    response = httpx.Response(
+        200,
+        headers={"content-type": "text/html; charset=utf-8"},
+        text="<!doctype html><html><body>SPA</body></html>",
+        request=request,
+    )
+
+    with pytest.raises(PlankaApiFormatError) as exc_info:
+        client._parse_json(response)
+
+    message = str(exc_info.value)
+    assert "GET http://test/api/boards/1/labels" in message
+    assert "200" in message
+    assert "text/html" in message
+
+
+def test_client_parses_json_content_type():
+    """Verify _parse_json passes through proper JSON responses."""
+    from planka_mcp.client import PlankaClient
+
+    client = PlankaClient(base_url="http://test", api_token="tok")
+    request = httpx.Request("GET", "http://test/api/boards/1")
+    response = httpx.Response(
+        200,
+        headers={"content-type": "application/json; charset=utf-8"},
+        json={"item": {"id": "1"}},
+        request=request,
+    )
+
+    parsed = client._parse_json(response)
+    assert parsed == {"item": {"id": "1"}}
+
 
 @pytest.mark.asyncio
 async def test_create_tasks():
