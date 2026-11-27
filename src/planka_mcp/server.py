@@ -444,7 +444,18 @@ async def update_cards(cards: list[dict[str, Any]]) -> str:
                 data["isClosed"] = card["isClosed"]
             if card.get("position") is not None:
                 data["position"] = card["position"]
-            await client.patch(f"cards/{card_id}", data=data)
+            result = await client.patch(f"cards/{card_id}", data=data)
+            actual = result.get("item") or {}
+            mismatches = [
+                f"{field}: sent {data[field]!r}, card reports {actual.get(field)!r}"
+                for field in ("name", "description", "isClosed")
+                if field in data and actual.get(field) != data[field]
+            ]
+            if mismatches:
+                failed.append(
+                    {"id": card_id, "error": "update not applied (" + "; ".join(mismatches) + ")"}
+                )
+                continue
             succeeded.append(card_id)
         except Exception as e:
             failed.append({"id": card_id, "error": str(e)})
@@ -481,13 +492,28 @@ async def delete_cards(cardIds: list[str]) -> str:
 
 @mcp.tool()
 async def move_cards(cardIds: list[str], listId: str, position: int = 65536) -> str:
-    """Move cards to a target list. Reports succeeded and failed card IDs separately."""
+    """Move cards to a target list. Reports succeeded and failed card IDs separately.
+
+    A move is verified against the post-write card returned by the API: the card
+    is only reported as succeeded if its listId matches the target list.
+    """
     succeeded: list[str] = []
     failed: list[dict[str, str]] = []
     client = _get_client()
     for card_id in cardIds:
         try:
-            await client.patch(f"cards/{card_id}", data={"listId": listId, "position": position})
+            result = await client.patch(
+                f"cards/{card_id}", data={"listId": listId, "position": position}
+            )
+            actual_list = (result.get("item") or {}).get("listId")
+            if actual_list != listId:
+                failed.append(
+                    {
+                        "cardId": card_id,
+                        "error": f"move not applied (card still in list {actual_list!r})",
+                    }
+                )
+                continue
             succeeded.append(card_id)
         except Exception as e:
             failed.append({"cardId": card_id, "error": str(e)})
