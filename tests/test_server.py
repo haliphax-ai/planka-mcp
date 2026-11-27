@@ -219,14 +219,12 @@ async def test_attach_file_calls_upload():
 
 
 @pytest.mark.asyncio
-
-@pytest.mark.asyncio
 async def test_move_cards_all_succeed():
     """Verify move_cards moves all cards and reports success."""
     with patch("planka_mcp.server._get_client") as mock_get:
         client = AsyncMock()
         mock_get.return_value = client
-        client.patch.return_value = {"item": {}}
+        client.patch.return_value = {"item": {"id": "card-1", "listId": "target-list"}}
 
         from planka_mcp.server import move_cards
         result = await move_cards(["card-1", "card-2", "card-3"], "target-list")
@@ -246,13 +244,13 @@ async def test_move_cards_partial_failure():
         client = AsyncMock()
         mock_get.return_value = client
         client.patch.side_effect = [
-            {"item": {}},
+            {"item": {"id": "card-1", "listId": "target-list"}},
             httpx.HTTPStatusError(
                 "Not Found",
                 request=MagicMock(),
                 response=MagicMock(status_code=404),
             ),
-            {"item": {}},
+            {"item": {"id": "card-3", "listId": "target-list"}},
         ]
 
         from planka_mcp.server import move_cards
@@ -272,7 +270,7 @@ async def test_move_cards_default_position():
     with patch("planka_mcp.server._get_client") as mock_get:
         client = AsyncMock()
         mock_get.return_value = client
-        client.patch.return_value = {"item": {}}
+        client.patch.return_value = {"item": {"listId": "target-list"}}
 
         from planka_mcp.server import move_cards
         result = await move_cards(["card-1"], "target-list")
@@ -290,7 +288,7 @@ async def test_move_cards_custom_position():
     with patch("planka_mcp.server._get_client") as mock_get:
         client = AsyncMock()
         mock_get.return_value = client
-        client.patch.return_value = {"item": {}}
+        client.patch.return_value = {"item": {"listId": "target-list"}}
 
         from planka_mcp.server import move_cards
         result = await move_cards(["card-1"], "target-list", position=1000)
@@ -592,7 +590,14 @@ async def test_update_cards_all_succeed():
     with patch("planka_mcp.server._get_client") as mock_get:
         client = AsyncMock()
         mock_get.return_value = client
-        client.patch.return_value = {"item": {}}
+        client.patch.return_value = {
+            "item": {
+                "id": "card-1",
+                "name": "Renamed",
+                "description": "New desc",
+                "isClosed": False,
+            }
+        }
 
         from planka_mcp.server import update_cards
         result = await update_cards([
@@ -640,13 +645,13 @@ async def test_update_cards_partial_failure():
         client = AsyncMock()
         mock_get.return_value = client
         client.patch.side_effect = [
-            {"item": {}},
+            {"item": {"name": "A"}},
             httpx.HTTPStatusError(
                 "Not Found",
                 request=MagicMock(),
                 response=MagicMock(status_code=404),
             ),
-            {"item": {}},
+            {"item": {"name": "C"}},
         ]
 
         from planka_mcp.server import update_cards
